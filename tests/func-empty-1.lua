@@ -1,5 +1,5 @@
-local function func()
+local function foo()
 end
 
-print(".", func(), ".")
+print(".", foo(), ".")
 

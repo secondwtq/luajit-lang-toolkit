@@ -3,7 +3,11 @@ import os
 import re
 import subprocess
 
-test_dir = "tests"
+if len(sys.argv) > 1:
+    test_dir = sys.argv[1]
+else:
+    test_dir = "tests"    
+
 luajit_exec = "luajit"
 luajit_x = "./src/luajit-x"
 
