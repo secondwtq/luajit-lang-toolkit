@@ -616,6 +616,9 @@ end
 
 local function bclist(ctx, input, output)
     local s = bccompile(ctx, input)
+    print("original output: ")
+    print(s)
+    print('------------------------------------------------')
     require("lang.bcread").dump(s, savefile(output, "w"), input, ctx.hexdump)
 end
 

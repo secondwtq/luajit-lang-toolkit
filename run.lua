@@ -17,6 +17,8 @@ local function check(success, result)
     end
 end
 
+use_luacode_gen = true
+
 local args = {...}
 local k = 1
 while args[k] do
