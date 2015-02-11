@@ -484,11 +484,22 @@ local function parse_stmt(ast, ls)
 end
 
 local function parse_params(ast, ls, needself)
-    lex_check(ls, "(")
-    local args = { }
-    if needself then
-        args[1] = ast:var_declare("self")
+
+    local use_c_block = false
+    local has_wrapped_arglist = false
+    if ls.token == '{' then
+        use_c_block = true
+        ls:next()
+    elseif ls.token == '(' then
+        has_wrapped_arglist = true
+        lex_check(ls, "(")
+    else lex_check(ls, "(")
     end
+
+    local args = { }
+    if needself then args[1] = ast:var_declare("self") end
+    if not has_wrapped_arglist then return args, use_c_block end
+
     if ls.token ~= ")" then
         repeat
             if ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
@@ -505,18 +516,24 @@ local function parse_params(ast, ls, needself)
         until not lex_opt(ls, ',')
     end
     lex_check(ls, ")")
-    return args
+    return args, use_c_block
 end
 
 local function new_proto(ls, varargs)
     return { varargs = varargs }
 end
 
-function parse_block_stmts(ast, ls)
+function parse_block_stmts(ast, ls, use_c_block)
+    local use_c_block = use_c_block
+    if use_c_block == nil then use_c_block = false end
+
     local firstline = ls.linenumber
     local stmt, islast = nil, false
     local body = { }
     while not islast and not EndOfBlock[ls.token] do
+        if use_c_block and ls.token == '}' then
+            break
+        end
         stmt, islast = parse_stmt(ast, ls)
         body[#body + 1] = stmt
         lex_opt(ls, ';')
@@ -535,22 +552,36 @@ function parse_body(ast, ls, line, needself)
     ls.fs = new_proto(ls, false)
     ast:fscope_begin()
     ls.fs.firstline = line
-    local args = parse_params(ast, ls, needself)
-    local body = parse_block(ast, ls)
+
+    local args, use_c_block = parse_params(ast, ls, needself)
+
+    if ls.token == '{' then
+        use_c_block = true
+        ls:next()
+    end
+
+    local body = parse_block(ast, ls, nil, use_c_block)
     ast:fscope_end()
     local proto = ls.fs
-    if ls.token ~= 'TK_end' then
-        lex_match(ls, 'TK_end', 'TK_function', line)
+
+    local end_token = 'TK_end'
+    if use_c_block then end_token = '}' end
+
+    if ls.token ~= end_token then
+        lex_match(ls, end_token, 'TK_function', line)
     end
+
     ls.fs.lastline = ls.linenumber
     ls:next()
     ls.fs = pfs
     return args, body, proto
 end
 
-function parse_block(ast, ls, firstline)
+function parse_block(ast, ls, firstline, use_c_block)
+    local use_c_block = use_c_block
+    if use_c_block == nil then use_c_block = false end
     ast:fscope_begin()
-    local body = parse_block_stmts(ast, ls)
+    local body = parse_block_stmts(ast, ls, use_c_block)
     body.firstline, body.lastline = firstline, ls.linenumber
     ast:fscope_end()
     return body
