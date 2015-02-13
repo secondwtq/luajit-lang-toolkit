@@ -5,6 +5,12 @@ local LJ_52 = false
 local IsLastStatement = { TK_return = true, TK_break  = true }
 local EndOfBlock = { TK_else = true, TK_elseif = true, TK_end = true, TK_until = true, TK_eof = true }
 
+local var_type_list = { }
+
+local function logparser(str)
+    print (str)
+end
+
 local function err_syntax(ls, em)
   ls:error(ls.token, em)
 end
@@ -176,6 +182,8 @@ end
 
 -- Parse primary expression.
 function expr_primary(ast, ls)
+    logparser 'parseing primary'
+
     local v, vk
     -- Parse prefix expression.
     if ls.token == '(' then
@@ -184,13 +192,33 @@ function expr_primary(ast, ls)
         vk, v = 'expr', ast:expr_brackets(expr(ast, ls))
         lex_match(ls, ')', '(', line)
     elseif ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
-        vk, v = 'var', var_lookup(ast, ls)
+        logparser 'expr_primary: parsing name'
+        if ls:lookahead() == 'TK_as' then
+            local org_name = lex_str(ls)
+            local org_type = var_type_list[org_name]
+            ls:next()
+            local typename = lex_str(ls)
+            
+            if typename == 'Techno' then
+                if org_type == 'RTTITable' then
+                    local t = ast:identifier(org_name)
+                    vk, v = 'indexed', ast:expr_property(t, 'Techno')
+                end
+            else
+
+            end
+
+        else
+            vk, v = 'var', var_lookup(ast, ls)
+        end
     else
         err_syntax(ls, "unexpected symbol")
     end
     while true do -- Parse multiple expression suffixes.
+        logparser 'expr_primary: parsing suffixes'
         local line = ls.linenumber
         if ls.token == '.' then
+            logparser 'expr_primary: parsing dot'
             vk, v = 'indexed', expr_field(ast, ls, v)
         elseif ls.token == '[' then
             local key = expr_bracket(ast, ls)
@@ -500,11 +528,14 @@ local function parse_params(ast, ls, needself)
     if needself then args[1] = ast:var_declare("self") end
     if not has_wrapped_arglist then return args, use_c_block end
 
+    local current_var = ''
+
     if ls.token ~= ")" then
         repeat
             if ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
                 local name = lex_str(ls)
                 args[#args+1] = ast:var_declare(name)
+                current_var = name
             elseif ls.token == 'TK_dots' then
                 ls:next()
                 ls.fs.varargs = true
@@ -514,7 +545,18 @@ local function parse_params(ast, ls, needself)
                 err_syntax(ls, "<name> or \"...\" expected")
             end
         until not lex_opt(ls, ',')
+
+        if ls.token == 'TK_as' then
+            if current_var ~= '' then
+                ls:next()
+                var_type_list[current_var] = lex_str(ls)
+            else
+                err_syntax(ls, "identifier expected before 'as'")
+            end
+        end
+
     end
+
     lex_check(ls, ")")
     return args, use_c_block
 end
