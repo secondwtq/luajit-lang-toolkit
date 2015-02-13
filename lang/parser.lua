@@ -89,6 +89,7 @@ function expr_table(ast, ls)
     local hkeys, hvals = { }, { }
     local avals = { }
     lex_check(ls, '{')
+    logparser 'expr_table: parsing table expression'
     while ls.token ~= '}' do
         local key
         if ls.token == '[' then
@@ -109,6 +110,7 @@ function expr_table(ast, ls)
         if not lex_opt(ls, ',') and not lex_opt(ls, ';') then break end
     end
     lex_match(ls, '}', '{', line)
+    logparser 'expr_table: returning'
     return ast:expr_table(avals, hkeys, hvals, line)
 end
 
@@ -188,7 +190,7 @@ end
 
 -- Parse primary expression.
 function expr_primary(ast, ls)
-    logparser 'parseing primary'
+    logparser 'expr_primary: parsing primary'
 
     local v, vk
     -- Parse prefix expression.
@@ -199,10 +201,11 @@ function expr_primary(ast, ls)
         lex_match(ls, ')', '(', line)
     elseif ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
         logparser 'expr_primary: parsing name'
-        if ls:lookahead() == 'TK_as' then
+        local tk_next = ls:lookahead()
+        if tk_next == 'TK_as' then
             local org_name = lex_str(ls)
-            local org_type = var_type_list:top()[org_name]
             ls:next()
+            local org_type = var_type_list:top()[org_name]
             local typename = lex_str(ls)
             
             if org_type == nil then
@@ -247,6 +250,7 @@ function expr_primary(ast, ls)
             break
         end
     end
+    logparser 'expr_primary: returning'
     return v, vk
 end
 
@@ -520,6 +524,7 @@ local function parse_stmt(ast, ls)
     elseif ls.token == 'TK_label' then
         stmt = parse_label(ast, ls)
     elseif ls.token == 'TK_goto' then
+        logparser 'parsing goto'
         if LJ_52 or ls:lookahead() == 'TK_name' then
             ls:next()
             stmt = parse_goto(ast, ls)

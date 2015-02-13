@@ -467,21 +467,22 @@ local Lexer = {
 
 function Lexer.next(ls)
     ls.lastline = ls.linenumber
-    if ls.tklookahead == 'TK_eof' then -- No lookahead token?
+    if #ls.tkla_queue == 0 then -- No lookahead token?
         ls.token, ls.tokenval = llex(ls) -- Get nextchar token.
         ls.space = get_space_string(ls)
     else
-        ls.token, ls.tokenval = ls.tklookahead, ls.tklookaheadval
-        ls.space = ls.spaceahead
-        ls.tklookahead = 'TK_eof'
+        local ahead = ls.tkla_queue[#ls.tkla_queue]
+        ls.token, ls.tokenval, ls.space = ahead[1], ahead[2], ahead[3]
+        table.remove(ls.tkla_queue)
     end
 end
 
 function Lexer.lookahead(ls)
-    assert(ls.tklookahead == 'TK_eof')
-    ls.tklookahead, ls.tklookaheadval = llex(ls)
-    ls.spaceahead = get_space_string(ls)
-    return ls.tklookahead
+    local atoken, atokenval = llex(ls)
+    local aspace = get_space_string(ls)
+    local ahead = { atoken, atokenval, aspace }
+    table.insert(ls.tkla_queue, 1, ahead)
+    return ahead[1]
 end
 
 local LexerClass = { __index = Lexer }
@@ -495,7 +496,8 @@ local function lex_setup(read_func, chunkname)
         lastline = 1,
         read_func = read_func,
         chunkname = chunkname,
-        space_buf = ''
+        space_buf = '',
+        tkla_queue = { }
     }
     nextchar(ls)
     if ls.current == '\xef' and ls.n >= 2 and
