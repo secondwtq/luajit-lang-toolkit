@@ -13,7 +13,7 @@ local ReservedKeyword = {['and'] = 1, ['break'] = 2, ['do'] = 3, ['else'] = 4,
 ['elseif'] = 5, ['end'] = 6, ['false'] = 7, ['for'] = 8, ['function'] = 9,
 ['goto'] = 10, ['if'] = 11, ['in'] = 12, ['local'] = 13, ['nil'] = 14,
 ['not'] = 15, ['or'] = 16, ['repeat'] = 17, ['return'] = 18, ['then'] = 19,
-['true'] = 20, ['until'] = 21, ['while'] = 22, ['func'] = 23, ['as'] = 24 }
+['true'] = 20, ['until'] = 21, ['while'] = 22, ['func'] = 23, ['as'] = 24, ['var'] = 25 }
 
 local uint64, int64 = ffi.typeof('uint64_t'), ffi.typeof('int64_t')
 local complex = ffi.typeof('complex')
@@ -381,7 +381,8 @@ local function llex(ls)
             local s = get_string(ls, 0, 0)
             local reserved = ReservedKeyword[s]
             if reserved then
-                if s == 'func' then return 'TK_function' end
+                if s == 'func' then return 'TK_function'
+                elseif s == 'var' then return 'TK_local' end
                 return 'TK_' .. s
             else
                 return 'TK_name', s
