@@ -199,6 +199,10 @@ function expr_primary(ast, ls)
             ls:next()
             local typename = lex_str(ls)
             
+            if org_type == nil then
+                err_syntax(ls, 'no typeinfo for name ' .. org_name)
+            end
+
             if typename == 'Techno' then
                 if org_type == 'RTTITable' then
                     local t = ast:identifier(org_name)
@@ -336,7 +340,8 @@ function parse_args(ast, ls)
         ls:next()
         args = { ast:literal(a) }
     else
-        err_syntax(ls, "function arguments expected")
+        args = { }
+        -- err_syntax(ls, "function arguments expected")
     end
     return args
 end
