@@ -5,13 +5,17 @@ local LJ_52 = false
 local IsLastStatement = { TK_return = true, TK_break  = true }
 local EndOfBlock = { TK_else = true, TK_elseif = true, TK_end = true, TK_until = true, TK_eof = true }
 
+
+
 local typeliststack = require 'lang.typeliststack'
 
 local var_type_list = typeliststack.stack:new()
 
 local function logparser(str)
-    print (str)
+    -- print (str)
 end
+
+
 
 local function err_syntax(ls, em)
   ls:error(ls.token, em)
@@ -385,6 +389,15 @@ local function parse_local(ast, ls)
         local vl = { }
         repeat -- Collect LHS.
             vl[#vl+1] = lex_str(ls)
+
+            if ls.token == 'TK_as' then
+                if current_var ~= '' then
+                    ls:next()
+                    var_type_list:top()[vl[#vl]] = lex_str(ls)
+                else
+                    err_syntax(ls, "identifier expected before 'as'")
+                end
+            end
         until not lex_opt(ls, ',')
         local exps
         if lex_opt(ls, '=') then -- Optional RHS.
