@@ -5,7 +5,9 @@ local LJ_52 = false
 local IsLastStatement = { TK_return = true, TK_break  = true }
 local EndOfBlock = { TK_else = true, TK_elseif = true, TK_end = true, TK_until = true, TK_eof = true }
 
-local var_type_list = { }
+local typeliststack = require 'lang.typeliststack'
+
+local var_type_list = typeliststack.stack:new()
 
 local function logparser(str)
     print (str)
@@ -195,7 +197,7 @@ function expr_primary(ast, ls)
         logparser 'expr_primary: parsing name'
         if ls:lookahead() == 'TK_as' then
             local org_name = lex_str(ls)
-            local org_type = var_type_list[org_name]
+            local org_type = var_type_list:top()[org_name]
             ls:next()
             local typename = lex_str(ls)
             
@@ -203,7 +205,9 @@ function expr_primary(ast, ls)
                 err_syntax(ls, 'no typeinfo for name ' .. org_name)
             end
 
-            if typename == 'Techno' then
+            if typename == org_type then
+                vk, v = 'var', ast:identifier(org_name)
+            elseif typename == 'Techno' then
                 if org_type == 'RTTITable' then
                     local t = ast:identifier(org_name)
                     vk, v = 'indexed', ast:expr_property(t, 'Techno')
@@ -554,7 +558,7 @@ local function parse_params(ast, ls, needself)
         if ls.token == 'TK_as' then
             if current_var ~= '' then
                 ls:next()
-                var_type_list[current_var] = lex_str(ls)
+                var_type_list:top()[current_var] = lex_str(ls)
             else
                 err_syntax(ls, "identifier expected before 'as'")
             end
@@ -598,6 +602,7 @@ function parse_body(ast, ls, line, needself)
     local pfs = ls.fs
     ls.fs = new_proto(ls, false)
     ast:fscope_begin()
+    var_type_list:push_new()
     ls.fs.firstline = line
 
     local args, use_c_block = parse_params(ast, ls, needself)
@@ -608,6 +613,7 @@ function parse_body(ast, ls, line, needself)
     end
 
     local body = parse_block(ast, ls, nil, use_c_block)
+    var_type_list:pop()
     ast:fscope_end()
     local proto = ls.fs
 
@@ -615,6 +621,7 @@ function parse_body(ast, ls, line, needself)
     if use_c_block then end_token = '}' end
 
     if ls.token ~= end_token then
+        logparser 'parse_body: matching function end'
         lex_match(ls, end_token, 'TK_function', line)
     end
 
@@ -628,8 +635,10 @@ function parse_block(ast, ls, firstline, use_c_block)
     local use_c_block = use_c_block
     if use_c_block == nil then use_c_block = false end
     ast:fscope_begin()
+    var_type_list:push_new()
     local body = parse_block_stmts(ast, ls, use_c_block)
     body.firstline, body.lastline = firstline, ls.linenumber
+    var_type_list:pop()
     ast:fscope_end()
     return body
 end
